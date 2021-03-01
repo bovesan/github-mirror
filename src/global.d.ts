@@ -1,0 +1,3 @@
+interface GitHubRepo {
+	name: string;
+}
