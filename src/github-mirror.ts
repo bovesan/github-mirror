@@ -136,7 +136,12 @@ async function main(){
         if (issuesFailed){
             statusString += 'Issues: FAILED'.padEnd(24)
         } else {
-            const oldHash = fs.readFileSync(issuesPath, 'utf8').hashCode();
+            let oldHash = 0;
+            try{
+                oldHash = fs.readFileSync(issuesPath, 'utf8').hashCode();
+            } catch (error) {
+                //
+            }
             if (issues.hashCode() == oldHash){
                 statusString += 'Issues: OK'.padEnd(24)
             } else {

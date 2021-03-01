@@ -205,7 +205,13 @@ function main() {
                         statusString += 'Issues: FAILED'.padEnd(24);
                     }
                     else {
-                        oldHash = fs_1.default.readFileSync(issuesPath, 'utf8').hashCode();
+                        oldHash = 0;
+                        try {
+                            oldHash = fs_1.default.readFileSync(issuesPath, 'utf8').hashCode();
+                        }
+                        catch (error) {
+                            //
+                        }
                         if (issues.hashCode() == oldHash) {
                             statusString += 'Issues: OK'.padEnd(24);
                         }
