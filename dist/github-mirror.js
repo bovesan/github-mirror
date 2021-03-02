@@ -1,24 +1,5 @@
 #!/usr/bin/env node
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -62,11 +43,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var child_process_1 = __importDefault(require("child_process"));
 var fs_1 = __importDefault(require("fs"));
 var path_1 = __importDefault(require("path"));
-var os_1 = __importDefault(require("os"));
-var readline = __importStar(require("readline"));
 var https_1 = __importDefault(require("https"));
-var credentialsPath = path_1.default.join(os_1.default.homedir(), '.github-mirror');
-var description = "Usage:\n" + path_1.default.basename(process.argv[1]) + " destinationFolder\n\nCredentials must be specified:\n" + credentialsPath + "\nUSERNAME=<github-username>\nTOKEN=<personal-access-token>";
+var description = "Usage:\n" + path_1.default.basename(process.argv[1]) + " credentialsFile destinationFolder\n\nCredentials must be a file like this:\nUSERNAME=<github-username>\nTOKEN=<personal-access-token>";
+var errors = {
+    credentialsFileNotSpecified: 2,
+    destinationFolderNotSpecified: 3,
+    credentialsFileNotFound: 4,
+    usernameNotSpecified: 5,
+    tokenNotSpecified: 6,
+};
 String.prototype.hashCode = function () {
     var hash = 0, i, chr;
     if (this.length === 0)
@@ -78,16 +63,22 @@ String.prototype.hashCode = function () {
     }
     return hash;
 };
-var destinationFolder = process.argv[2];
-if (!destinationFolder) {
+var credentialsPath = process.argv[2];
+if (!credentialsPath) {
+    console.error("Credentials file not specified");
     console.error(description);
+    process.exit(errors.credentialsFileNotSpecified);
+}
+var destinationFolder = process.argv[3];
+if (!destinationFolder) {
     console.error("Destination folder not specified");
-    process.exit(1);
+    console.error(description);
+    process.exit(errors.destinationFolderNotSpecified);
 }
 if (!fs_1.default.existsSync(credentialsPath)) {
-    console.error(description);
     console.error("Credentials file not present: " + credentialsPath);
-    process.exit(2);
+    console.error(description);
+    process.exit(errors.credentialsFileNotFound);
 }
 var newline = /(\r\n|[\n\v\f\r\x85\u2028\u2029])/;
 var username = '';
@@ -106,14 +97,14 @@ for (var _i = 0, _a = fs_1.default.readFileSync(credentialsPath, 'utf8').split(n
     }
 }
 if (!username) {
-    console.error(description);
     console.error("Username not specified in " + credentialsPath);
-    process.exit(3);
+    console.error(description);
+    process.exit(errors.usernameNotSpecified);
 }
 if (!token) {
-    console.error(description);
     console.error("Token not specified in " + credentialsPath);
-    process.exit(4);
+    console.error(description);
+    process.exit(errors.tokenNotSpecified);
 }
 function simpleFetch(url) {
     return new Promise(function (resolve, reject) {
@@ -135,13 +126,13 @@ function simpleFetch(url) {
     });
 }
 function fetchReposPage(page) {
-    var url = "https://api.github.com/users/" + username + "/repos?per_page=100&page=" + page;
-    console.log('Fetching ' + url);
+    var url = "https://api.github.com/user/repos?per_page=100?sort=full_name&type=all&page=" + page;
+    // console.log('Fetching '+url);
     return simpleFetch(url).then(function (body) { return JSON.parse(body); });
 }
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var repos, page, pageEmpty, pageRepos, _i, repos_1, repo, repoFolder, repoPath, wikiPath, issuesPath, statusString, repoProcess, issuesFailed, issues, error_1, oldHash, wikiProcess, _loop_1, _a, _b, entry;
+        var repos, page, pageEmpty, pageRepos, _i, repos_1, repo, repoFolder, repoPath, wikiPath, issuesPath, repoProcess, issuesFailed, issues, error_1, oldHash, wikiProcess, _loop_1, _a, _b, entry;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
@@ -155,7 +146,7 @@ function main() {
                     return [4 /*yield*/, fetchReposPage(page)];
                 case 2:
                     pageRepos = _c.sent();
-                    console.log("Got " + pageRepos.length + " more repos");
+                    // console.log(`Got ${pageRepos.length} more repos`);
                     if (!pageRepos.length) {
                         return [3 /*break*/, 3];
                     }
@@ -172,21 +163,18 @@ function main() {
                     repoPath = path_1.default.join(repoFolder, repo.name + ".git");
                     wikiPath = path_1.default.join(repoFolder, repo.name + ".wiki.git");
                     issuesPath = path_1.default.join(repoFolder, repo.name + ".issues.json");
-                    statusString = repo.name.padEnd(32) + " ";
-                    process.stdout.write(statusString + 'Cloning repository ...');
+                    process.stdout.write(repo.name.padEnd(32) + " Repository: ");
                     repoProcess = child_process_1.default.spawnSync('git', ['clone', '--quiet', '--mirror', "https://" + username + ":" + token + "@github.com/" + username + "/" + repo.name + ".git", repoPath]);
                     if (repoProcess.status === 128) {
-                        statusString += "Repository: OK".padEnd(24);
+                        process.stdout.write('OK'.padEnd(12));
                     }
                     else if (repoProcess.status) {
-                        statusString += ("Repository: FAILED (" + repoProcess.status + ")").padEnd(24);
+                        process.stdout.write(("FAILED (" + repoProcess.status + ")").padEnd(12));
                     }
                     else {
-                        statusString += 'Repository: UPDATED'.padEnd(24);
+                        process.stdout.write('UPDATED'.padEnd(12));
                     }
-                    readline.clearLine(process.stdout, 0);
-                    readline.cursorTo(process.stdout, 0);
-                    process.stdout.write(statusString + 'Fetching issues ...');
+                    process.stdout.write('Issues: ');
                     issuesFailed = false;
                     issues = '';
                     _c.label = 5;
@@ -202,7 +190,7 @@ function main() {
                     return [3 /*break*/, 8];
                 case 8:
                     if (issuesFailed) {
-                        statusString += 'Issues: FAILED'.padEnd(24);
+                        process.stdout.write('FAILED'.padEnd(12));
                     }
                     else {
                         oldHash = 0;
@@ -213,29 +201,25 @@ function main() {
                             //
                         }
                         if (issues.hashCode() == oldHash) {
-                            statusString += 'Issues: OK'.padEnd(24);
+                            process.stdout.write('OK'.padEnd(12));
                         }
                         else {
                             fs_1.default.writeFileSync(issuesPath, issues);
-                            statusString += 'Issues: UPDATED'.padEnd(24);
+                            process.stdout.write('UPDATED'.padEnd(12));
                         }
                     }
-                    readline.clearLine(process.stdout, 0);
-                    readline.cursorTo(process.stdout, 0);
-                    process.stdout.write(statusString + 'Cloning wiki ...');
+                    process.stdout.write('Wiki: ');
                     wikiProcess = child_process_1.default.spawnSync('git', ['clone', '--quiet', '--mirror', "https://" + username + ":" + token + "@github.com/" + username + "/" + repo.name + ".wiki.git", wikiPath]);
                     if (wikiProcess.status === 128) {
-                        // statusString += 'Wiki: NONE'.padEnd(24)
+                        process.stdout.write('OK'.padEnd(12));
                     }
                     else if (wikiProcess.status) {
-                        statusString += 'Wiki: FAILED'.padEnd(24);
+                        process.stdout.write(("FAILED (" + repoProcess.status + ")").padEnd(12));
                     }
                     else {
-                        statusString += 'Wiki: OK'.padEnd(24);
+                        process.stdout.write('UPDATED'.padEnd(12));
                     }
-                    readline.clearLine(process.stdout, 0);
-                    readline.cursorTo(process.stdout, 0);
-                    process.stdout.write(statusString + '\n');
+                    process.stdout.write('\n');
                     _c.label = 9;
                 case 9:
                     _i++;
@@ -243,19 +227,15 @@ function main() {
                 case 10:
                     _loop_1 = function (entry) {
                         if (entry.isDirectory() && !repos.find(function (repo) { return repo.name === entry.name; })) {
-                            var statusString = entry.name.padEnd(32) + " No longer on GitHub. ";
-                            process.stdout.write(statusString + 'Removing ...');
+                            process.stdout.write(entry.name.padEnd(32) + " No longer on GitHub. ");
                             var repoProcess = child_process_1.default.spawnSync('rm', ['-rvf', path_1.default.join(destinationFolder, entry.name)]);
                             if (repoProcess.status) {
-                                statusString += 'REMOVAL FAILED';
+                                process.stdout.write('REMOVAL FAILED');
                             }
                             else {
-                                statusString += 'REMOVED';
+                                process.stdout.write('REMOVED');
                             }
-                            readline.clearLine(process.stdout, 0);
-                            readline.cursorTo(process.stdout, 0);
-                            process.stdout.write(statusString);
-                            process.stdout.write(statusString + '\n');
+                            process.stdout.write('\n');
                         }
                     };
                     for (_a = 0, _b = fs_1.default.readdirSync(destinationFolder, { withFileTypes: true }); _a < _b.length; _a++) {
