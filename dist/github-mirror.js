@@ -160,6 +160,7 @@ function main() {
                     if (!(_i < repos_1.length)) return [3 /*break*/, 10];
                     repo = repos_1[_i];
                     repoFolder = path_1.default.join(destinationFolder, repo.name);
+                    fs_1.default.mkdirSync(repoFolder);
                     repoPath = path_1.default.join(repoFolder, repo.name + ".git");
                     wikiPath = path_1.default.join(repoFolder, repo.name + ".wiki.git");
                     issuesPath = path_1.default.join(repoFolder, repo.name + ".issues.json");

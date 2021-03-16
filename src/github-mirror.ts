@@ -121,6 +121,7 @@ async function main(){
     console.log(`User has ${repos.length} repositories`);
     for (let repo of repos){
         const repoFolder = path.join(destinationFolder, repo.name);
+        fs.mkdirSync(repoFolder);
         const repoPath = path.join(repoFolder, `${repo.name}.git`);
         const wikiPath = path.join(repoFolder, `${repo.name}.wiki.git`);
         const issuesPath = path.join(repoFolder, `${repo.name}.issues.json`);
