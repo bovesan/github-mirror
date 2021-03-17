@@ -19,6 +19,7 @@ const errors = {
     credentialsFileNotFound: 4,
     usernameNotSpecified: 5,
     tokenNotSpecified: 6,
+    gitCommandNotAvailable: 7,
 }
 
 declare global {
@@ -121,13 +122,18 @@ async function main(){
     console.log(`User has ${repos.length} repositories`);
     for (let repo of repos){
         const repoFolder = path.join(destinationFolder, repo.name);
-        fs.mkdirSync(repoFolder);
         const repoPath = path.join(repoFolder, `${repo.name}.git`);
         const wikiPath = path.join(repoFolder, `${repo.name}.wiki.git`);
         const issuesPath = path.join(repoFolder, `${repo.name}.issues.json`);
         process.stdout.write(`${repo.name.padEnd(32)} Repository: `);
         const repoProcess = child_process.spawnSync('git', ['clone', '--quiet', '--mirror', `https://${username}:${token}@github.com/${username}/${repo.name}.git`, repoPath]);
-        if (repoProcess.status === 128){
+        if (repoProcess.error){
+            if (repoProcess.error.message.endsWith('ENOENT')){
+                console.error('ERROR\ngit command not available');
+                process.exit(errors.gitCommandNotAvailable);
+            }
+            throw repoProcess.error;
+        } else if (repoProcess.status === 128){
             process.stdout.write('OK'.padEnd(12));
         } else if (repoProcess.status){
             process.stdout.write(`FAILED (${repoProcess.status})`.padEnd(12));

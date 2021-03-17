@@ -51,6 +51,7 @@ var errors = {
     credentialsFileNotFound: 4,
     usernameNotSpecified: 5,
     tokenNotSpecified: 6,
+    gitCommandNotAvailable: 7,
 };
 String.prototype.hashCode = function () {
     var hash = 0, i, chr;
@@ -160,13 +161,19 @@ function main() {
                     if (!(_i < repos_1.length)) return [3 /*break*/, 10];
                     repo = repos_1[_i];
                     repoFolder = path_1.default.join(destinationFolder, repo.name);
-                    fs_1.default.mkdirSync(repoFolder);
                     repoPath = path_1.default.join(repoFolder, repo.name + ".git");
                     wikiPath = path_1.default.join(repoFolder, repo.name + ".wiki.git");
                     issuesPath = path_1.default.join(repoFolder, repo.name + ".issues.json");
                     process.stdout.write(repo.name.padEnd(32) + " Repository: ");
                     repoProcess = child_process_1.default.spawnSync('git', ['clone', '--quiet', '--mirror', "https://" + username + ":" + token + "@github.com/" + username + "/" + repo.name + ".git", repoPath]);
-                    if (repoProcess.status === 128) {
+                    if (repoProcess.error) {
+                        if (repoProcess.error.message.endsWith('ENOENT')) {
+                            console.error('ERROR\ngit command not available');
+                            process.exit(errors.gitCommandNotAvailable);
+                        }
+                        throw repoProcess.error;
+                    }
+                    else if (repoProcess.status === 128) {
                         process.stdout.write('OK'.padEnd(12));
                     }
                     else if (repoProcess.status) {
